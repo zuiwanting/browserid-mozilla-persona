@@ -76,11 +76,11 @@ var jwcrypto = require("./lib/jwcrypto");
   });
 
   test("setOrigin, getHostname", function() {
-    var origin = "http://browserid.org";
+    var origin = "http://persona.org";
     lib.setOrigin(origin);
 
     var hostname = lib.getHostname();
-    equal(hostname, "browserid.org", "getHostname returns only the hostname");
+    equal(hostname, "persona.org", "getHostname returns only the hostname");
   });
 
   test("getStoredEmailKeypairs without key - return all identities", function() {
@@ -154,7 +154,7 @@ var jwcrypto = require("./lib/jwcrypto");
       lib.createPrimaryUser({email: "unregistered@testuser.com"}, function(status) {
         equal(status, "primary.verified", "primary user is already verified, correct status");
         network.checkAuth(function(authenticated) {
-          equal(authenticated, "assertion", "after provisioning user, user should be automatically authenticated to BrowserID");
+          equal(authenticated, "assertion", "after provisioning user, user should be automatically authenticated to Persona");
           start();
         });
       }, testHelpers.unexpectedXHRFailure);
@@ -1012,7 +1012,7 @@ var jwcrypto = require("./lib/jwcrypto");
         equal(info.email, "unregistered@testuser.com", "correct address");
         equal(info.type, "secondary", "correct type");
         equal(info.email, "unregistered@testuser.com", "correct email");
-        equal(info.known, false, "address not known to BrowserID");
+        equal(info.known, false, "address not known to Persona");
         start();
       },
       testHelpers.unexpectedFailure
@@ -1026,7 +1026,7 @@ var jwcrypto = require("./lib/jwcrypto");
       function(info) {
         equal(info.type, "secondary", "correct type");
         equal(info.email, "registered@testuser.com", "correct email");
-        equal(info.known, true, "address known to BrowserID");
+        equal(info.known, true, "address known to Persona");
         start();
       },
       testHelpers.unexpectedFailure

@@ -114,8 +114,8 @@ app.use(cachify.setup(assets(config.get('supported_languages')),
 
 
 // #7 - perform response substitution to support local/dev/beta environments
-// (specifically, this replaces URLs in responses, e.g. https://browserid.org
-//  with https://diresworb.org)
+// (specifically, this replaces URLs in responses, e.g. https://persona.org
+//  with https://anosrep.org)
 config.performSubstitution(app);
 
 // #8 - handle /wsapi requests
