@@ -16,4 +16,13 @@ git log --pretty=%h -1 > ../code/resources/static/ver.txt
 cd ../code
 
 echo ">> generating production resources"
-scripts/compress
+env CONFIG_FILES=config/aws.json scripts/compress
+
+echo ">> updating strings"
+cd $HOME/locale
+svn up
+cd $HOME
+~/locale/compile-json.sh locale/ code/resources/static/i18n/
+
+echo ">> generating production resources"
+code/scripts/compress
