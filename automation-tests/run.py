@@ -57,7 +57,7 @@ def main():
             sys.stderr.write("either use --all or --everywhere, not both")
             exit(1)
 
-    # 1. check that python is the right version
+    # 1. check that python is the right version 
     # TODO: would 2.6 actually work?
     if sys.version_info < (2,7,0):
         sys.stderr.write('python 2.7 or later is required to run the tests\n')
