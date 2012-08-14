@@ -3,18 +3,17 @@
 var child_process = require('child_process'),
     path = require('path'),
     _ = require('underscore'),
-    fs = require('fs');
+    fs = require('fs'),
+    glob = require('minimatch');
 
 function runCmd(cmd, opts, cb) {
   if (!cb) {
     cb = opts;
     opts = { cwd: path.dirname(__dirname) };
   }
-  var cp = child_process.exec(cmd, opts, function(err, r) {
-    cb(err, r);
+  var cp = child_process.exec(cmd, opts, function(err, stdout, stderr) {
+    cb(err, stdout, stderr);
   });
-  cp.stdout.pipe(process.stdout);
-  cp.stderr.pipe(process.stderr);
 }
 
 // path to automation_tests
@@ -28,20 +27,20 @@ var globalPythonArgs = {
 };
 
 // python arguments specific to different test classes
-var testSpecificPythonArgs = [
-  {
+var testSpecificPythonArgs = {
+  "123done": {
     "--baseurl": "http://dev.123done.org",
     "-q": "123done"
   },
-  {
+  "browserid": {
     "--baseurl": "http://dev.123done.org",
     "-q": "browserid"
   },
-  {
+  "myfavoritebeer": {
     "--baseurl": "http://dev.myfavoritebeer.org",
     "-q": "myfavoritebeer"
   }
-];
+};
 
 // python arguments specific to different browser/os combos
 var browserSpecificPythonArgs = {
@@ -70,7 +69,7 @@ var browserSpecificPythonArgs = {
     '--browserver':'13'
   },
   "vista_ie_9": {
-    '--platform':'VISTA',
+    '--platform':'Windows 2008',
     '--browsername':'internet explorer',
     '--browserver':'9'
   },
@@ -101,28 +100,88 @@ function writeSauceYAML() {
   fs.writeFileSync(path.join(testPath, "sauce.yaml"), fileContents);
 }
 
-writeSauceYAML();
+exports.run = function(opts) {
+  opts = opts || {};
 
-Object.keys(browserSpecificPythonArgs).forEach(function(browser) {
-  var browserArgs = browserSpecificPythonArgs[browser];
-  testSpecificPythonArgs.forEach(function(test) {
-    var opts = {};
-    _.extend(opts, globalPythonArgs, test, browserArgs);
-    var cmdargs = "";
-    Object.keys(opts).forEach(function(flag) {
-      var spc = " ";
-      if (flag.substr(2) === '--') spc = "=";
-      cmdargs += flag + spc + escape(opts[flag].toString()) + " ";
-    });
+  writeSauceYAML();
 
-    console.log("STARTED: " + browser + " ("+testPath+")");
-    runCmd("bid_selenium/bin/python " + cmdargs, { cwd: testPath }, function(err, r) {
-      console.log("FINISHED: " + browser + "(" + (err ? 'fail' : 'success') + ")");
+  Object.keys(browserSpecificPythonArgs).forEach(function(browser) {
+    if (opts.browser && !glob(browser, opts.browser.toString())) return;
+    var browserArgs = browserSpecificPythonArgs[browser];
+
+    Object.keys(testSpecificPythonArgs).forEach(function(test) {
+      if (opts['test-group'] && !glob(test, (opts['test-group']).toString())) return;
+
+      var testArgs = testSpecificPythonArgs[test];
+      var cmdargsObj = {};
+      _.extend(cmdargsObj, globalPythonArgs, testArgs, browserArgs);
+      var cmdargs = "";
+      Object.keys(cmdargsObj).forEach(function(flag) {
+        var spc = " ";
+        if (flag.substr(2) === '--') spc = "=";
+        cmdargs += flag + spc + escape(cmdargsObj[flag].toString()) + " ";
+      });
+
+      console.log("STARTED: " + browser + "/" + test);
+      var startTime = new Date();
+      runCmd("bid_selenium/bin/python " + cmdargs, { cwd: testPath }, function(err, stdout, stderr) {
+        var report = {
+          duration: ((new Date() - startTime) / 1000.0),
+          stdout: stdout,
+          stderr: stderr,
+          err: err,
+          passed: !err
+        };
+        console.log((report.passed ? "PASSED" : "FAILED") + ": " + browser + "/" + test,
+                    report.duration.toFixed(2) + "s");
+      });
     });
   });
-});
+};
 
-process.on('uncaughtException', function(err) {
-  console.log("OH NOES", err);
-  process.exit(1);
-});
+// if we're invoked from the command line, do command liney things
+if (process.argv[1] === __filename) {
+  process.on('uncaughtException', function(err) {
+    console.log("OH NOES", err);
+    process.exit(1);
+  });
+
+  var argv = require('optimist')
+    .usage('Run selenium tests via sauce labs.\nUsage: $0')
+    .alias('help', 'h')
+    .describe('help', 'display this usage message')
+    .alias('list-browsers', 'lb')
+    .describe('lb', 'list available browsers to test on')
+    .alias('browser', 'b')
+    .describe('browser', 'specify which browser to run tests on (globs supported)')
+    .default('browser', "*")
+    .alias('list-test-groups', 'lt')
+    .describe('list-test-groups', 'list available groups of tests that can be run')
+    .alias('test-group', 't')
+    .describe('test-group', 'specify which test groups to run (globs supported)')
+    .default("test-group", "*");
+
+  var args = argv.argv;
+
+  if (args.h) {
+    argv.showHelp();
+    process.exit(0);
+  }
+
+  if (args.lb) {
+    console.log("available browsers:");
+    console.log("   * " + Object.keys(browserSpecificPythonArgs).join("\n   * "));
+    process.exit(0);
+  }
+
+  if (args.lt) {
+    console.log("available tests:");
+    console.log("   * " + Object.keys(testSpecificPythonArgs).join("\n   * "));
+    process.exit(0);
+  }
+
+  exports.run(_.extend({}, args));
+
+}
+
+
