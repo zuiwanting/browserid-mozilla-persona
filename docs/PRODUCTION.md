@@ -15,7 +15,7 @@ distant data centers. The number of clusters will likely increase.
 
 A single Persona cluster looks like:
 
-![alt](persona_arch.png "Optional title")
+![alt](https://raw.github.com/benadida/browserid/opsdocs/docs/persona_arch.png "Optional title")
 
 ## Processes
 
