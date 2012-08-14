@@ -117,6 +117,9 @@ ticket needs to be filed.
 
 ## Configuration Updates
 
+Configuration updates, whether new configuration fields or changes to
+existing configuration fields, should be flagged separately.
+
 ## Deployment Tickets
 
 A new deployment is thus performed by:
