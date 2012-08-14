@@ -1,0 +1,128 @@
+#!/usr/bin/env node
+
+var child_process = require('child_process'),
+    path = require('path'),
+    _ = require('underscore'),
+    fs = require('fs');
+
+function runCmd(cmd, opts, cb) {
+  if (!cb) {
+    cb = opts;
+    opts = { cwd: path.dirname(__dirname) };
+  }
+  var cp = child_process.exec(cmd, opts, function(err, r) {
+    cb(err, r);
+  });
+  cp.stdout.pipe(process.stdout);
+  cp.stderr.pipe(process.stderr);
+}
+
+// path to automation_tests
+const testPath = path.join(path.dirname(__dirname), "automation-tests");
+
+// python arguments common to all tests
+var globalPythonArgs = {
+  "-m": "py.test",
+  "--credentials": path.join(testPath, "credentials.yaml"),
+  "--saucelabs": path.join(testPath, "sauce.yaml"),
+};
+
+// python arguments specific to different test classes
+var testSpecificPythonArgs = [
+  {
+    "--baseurl": "http://dev.123done.org",
+    "-q": "123done"
+  },
+  {
+    "--baseurl": "http://dev.123done.org",
+    "-q": "browserid"
+  },
+  {
+    "--baseurl": "http://dev.myfavoritebeer.org",
+    "-q": "myfavoritebeer"
+  }
+];
+
+// python arguments specific to different browser/os combos
+var browserSpecificPythonArgs = {
+  "linux_ffx_13": {
+    '--platform': 'LINUX',
+    '--browsername': 'firefox',
+    '--browserver': 13
+  },
+  "linux_opera_12": {
+    '--platform': 'LINUX',
+    '--browsername': 'opera',
+    '--browserver': '12',
+  },
+  "osx_firefox_14": {
+    '--platform': 'MAC',
+    '--browsername':'firefox',
+    '--browserver':'14'
+  },
+  "vista_chrome": {
+    '--platform':'VISTA',
+    '--browsername':'chrome'
+  },
+  "vista_firefox_13": {
+    '--platform':'VISTA',
+    '--browsername':'firefox',
+    '--browserver':'13'
+  },
+  "vista_ie_9": {
+    '--platform':'VISTA',
+    '--browsername':'internet explorer',
+    '--browserver':'9'
+  },
+  "xp_ie_8": {
+    '--platform':'XP',
+    '--browsername': 'internet explorer',
+    '--browserver':'8'
+  }
+};
+
+function escape(val) {
+  return '"'+val.replace(/(["'$`\\])/g,'\\$1')+'"';
+};
+
+// now write a yaml file with sauce creds
+function writeSauceYAML() {
+  var envVars = {
+    'PERSONA_SAUCE_USER': 'username',
+    'PERSONA_SAUCE_PASSWORD': 'password',
+    'PERSONA_SAUCE_APIKEY': 'api-key'
+  };
+
+  var fileContents = "";
+  Object.keys(envVars).forEach(function(key) {
+    if (!process.env[key]) throw "missing sauce labs creds from environment";
+    fileContents += envVars[key] + ": " + process.env[key] + "\n"
+  });
+  fs.writeFileSync(path.join(testPath, "sauce.yaml"), fileContents);
+}
+
+writeSauceYAML();
+
+Object.keys(browserSpecificPythonArgs).forEach(function(browser) {
+  var browserArgs = browserSpecificPythonArgs[browser];
+  testSpecificPythonArgs.forEach(function(test) {
+    var opts = {};
+    _.extend(opts, globalPythonArgs, test, browserArgs);
+    var cmdargs = "";
+    Object.keys(opts).forEach(function(flag) {
+      var spc = " ";
+      if (flag.substr(2) === '--') spc = "=";
+      cmdargs += flag + spc + escape(opts[flag].toString()) + " ";
+    });
+
+    console.log("STARTED: " + browser + " ("+testPath+")");
+    runCmd("bid_selenium/bin/python " + cmdargs, { cwd: testPath }, function(err, r) {
+      console.log("FINISHED: " + browser + "(" + (err ? 'fail' : 'success') + ")");
+    });
+  });
+});
+
+process.on('uncaughtException', function(err) {
+  console.log("OH NOES", err);
+  process.exit(1);
+});
