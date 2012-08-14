@@ -25,9 +25,9 @@ Persona is composed of a few different distinct processes:
 
 * *static* - handles all static file requests, e.g. images, CSS, etc.
 
-* *webhead* - handles all read only API requests, forwarding when needed to dbwriter and certifier.
+* *reader* - handles all read only API requests, forwarding when needed to dbwriter and certifier.
 
-* *dbwriter* - handles all API requests which require write access to the database.
+* *writer* - handles all API requests which require write access to the database.
 
 * *certifier* - handles certification of user keys.
 
@@ -35,13 +35,31 @@ Persona is composed of a few different distinct processes:
 
 This process separation lets us scale optimally, by giving each function the ability to scale independently of the others. More importantly, it lets us do privilege separation:
 
-* only dbwriter has DB-write access.
-* only certifier has access to the private key.
-* dbwriter and certifier are not directly reachable from the public web.
+* only <tt>writer</tt> has DB-write access.
+* only <tt>certifier</tt> has access to the private key.
+* <tt>writer</tt> and <tt>certifier</tt> are not directly reachable from the public web, requests must be proxied via <tt>router</tt> and <tt>reader</tt>, serially.
 
+## Database
+
+We use MySQL in single-master / many-slaves mode, with the ability to
+promote any slave to master when needed. This process is not
+instantaneous: a master failure leads to 20 minutes of write-downtime
+(while reads are unaffected.)
 
 ## Hosts
 
+We could host each process on a separate host, but we don't need to do that yet. Instead, we have four classes of hosts:
+
+* *webhead* - runs the <tt>router</tt>, <tt>static</tt>, <tt>reader</tt>, and <tt>verifier</tt> processes.
+
+* *dbwriter* - runs the <tt>writer</tt> process.
+
+* *certifier* - runs the <tt>certifier</tt> process.
+
+* *db* - runs the MySQL Database, master or slave.
+
+Each class of hosts has at least 3 instances so that maintenance can
+proceed with remaining fault tolerance.
 
 # Deploying New Code
 
