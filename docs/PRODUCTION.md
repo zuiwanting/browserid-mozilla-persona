@@ -15,7 +15,7 @@ distant data centers. The number of clusters will likely increase.
 
 A single Persona cluster looks like:
 
-![](./persona_arch.png "Optional title")
+![alt](persona_arch.png "Optional title")
 
 ## Processes
 
