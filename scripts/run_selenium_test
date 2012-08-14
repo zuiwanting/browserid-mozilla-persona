@@ -4,7 +4,8 @@ var child_process = require('child_process'),
     path = require('path'),
     _ = require('underscore'),
     fs = require('fs'),
-    glob = require('minimatch');
+    glob = require('minimatch'),
+    temp = require('temp');
 
 function runCmd(cmd, opts, cb) {
   if (!cb) {
@@ -101,7 +102,10 @@ function writeSauceYAML() {
   fs.writeFileSync(path.join(testPath, "sauce.yaml"), fileContents);
 }
 
-exports.run = function(opts) {
+exports.run = function(opts, cb) {
+  var processesRunning;
+  var testReports = [];
+
   opts = opts || {};
 
   writeSauceYAML();
@@ -113,9 +117,13 @@ exports.run = function(opts) {
     Object.keys(testSpecificPythonArgs).forEach(function(test) {
       if (opts['test-group'] && !glob(test, (opts['test-group']).toString())) return;
 
+      var htmlReportPath = temp.path({suffix: '.pdf'});
       var testArgs = testSpecificPythonArgs[test];
+
+      // build up the command line arguments
       var cmdargsObj = {};
-      _.extend(cmdargsObj, globalPythonArgs, testArgs, browserArgs);
+      _.extend(cmdargsObj, globalPythonArgs, testArgs, browserArgs,
+               { '--webqareport': htmlReportPath });
       var cmdargs = "";
       Object.keys(cmdargsObj).forEach(function(flag) {
         var spc = " ";
@@ -129,16 +137,35 @@ exports.run = function(opts) {
 
       console.log("STARTED: " + browser + "/" + test);
       var startTime = new Date();
+      processesRunning++;
       runCmd("bid_selenium/bin/python " + cmdargs, { cwd: testPath }, function(err, stdout, stderr) {
         var report = {
+          browser: browser,
+          test: test,
           duration: ((new Date() - startTime) / 1000.0),
           stdout: stdout,
           stderr: stderr,
           err: err,
           passed: !err
         };
+
+        var htmlReportContents = fs.readFileSync(htmlReportPath);
+
+        // XXX parse out interesting stuff from htmlReport and update report
+
         console.log((report.passed ? "PASSED" : "FAILED") + ": " + browser + "/" + test,
                     report.duration.toFixed(2) + "s");
+
+        testReports.push(report);
+
+        // remove artifacts
+        fs.unlink(htmlReportPath);
+
+        if (--processesRunning === 0) {
+          fs.unlink(path.join(testPath, "sauce.yaml"));
+          if (cb) cb(null, testReports);
+          console.log(testReports);
+        }
       });
     });
   });
@@ -186,7 +213,4 @@ if (process.argv[1] === __filename) {
   }
 
   exports.run(_.extend({}, args));
-
 }
-
-
