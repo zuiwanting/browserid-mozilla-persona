@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2.7
 
 import optparse
 import os
@@ -40,7 +40,7 @@ def main():
     parser.add_option('--all', '-a', dest='run_all', action="store_true",
                       help='run all tests. requires test account credentials' +
                            ' to be created and added to credentials.yaml')
-    parser.add_option('--target', '-t', dest='target_hostname', 
+    parser.add_option('--target', '-t', dest='target_hostname',
                       default="dev", help='run tests against an ephemeral' +
                       ' instance. Specify your instance\'s hostname ("foo"),' +
                       ' not the full domain name ("foo.123done.org")')
@@ -57,7 +57,7 @@ def main():
             sys.stderr.write("either use --all or --everywhere, not both")
             exit(1)
 
-    # 1. check that python is the right version 
+    # 1. check that python is the right version
     # TODO: would 2.6 actually work?
     if sys.version_info < (2,7,0):
         sys.stderr.write('python 2.7 or later is required to run the tests\n')
@@ -68,14 +68,19 @@ def main():
         sys.stderr.write('pip must be installed; do "easy_install pip", ' +
                          ' then try again\n')
         exit(1)
-    if not which('virtualenv'):
+
+    virtualEnvPath = which('virtualenv-2.7')
+    if not virtualEnvPath:
+        virtualEnvPath = which('virtualenv')
+
+    if not virtualEnvPath:
         sys.stderr.write('virtualenv must be installed; do "pip install ' +
                          'virtualenv", then try again\n')
         exit(1)
 
     # 3. create the virtualenv if they asked you to install it or it's missing
     if options.install or not os.path.exists(env_py):
-        subprocess.call('virtualenv bid_selenium', shell=True)
+        subprocess.call(virtualEnvPath + ' bid_selenium', shell=True)
         # 4. pip install requirements (or verify they're installed).
         subprocess.call(env_path + 'pip install -Ur requirements.txt', 
                         shell=True)
