@@ -102,9 +102,27 @@ post-install actions taht restart appropriate services. This RPM is then pushed 
 
 ## Upgrading a Single Host
 
-Each host is upgraded by receiving the RPM and installing it.
+Each host is upgraded by copying the RPM to it and installing it.
 
+## Database Schema Updates
 
+Schema updates require more care. We aim to perform schema updates
+with zero downtime. Using the MySQL Percona toolchain, we perform
+schema updates by creating entirely new tables and in-place swapping
+the old and new. This means that a schema update can take multiple
+hours to perform and spread to all slaves.
 
+When a code change includes a schema update, a separate deployment
+ticket needs to be filed.
+
+## Configuration Updates
+
+## Deployment Tickets
+
+A new deployment is thus performed by:
+
+* preparing a deployment changelog, and determining whether database and/or configuration updates are necessary.
+* filing separate schema update and configuration update tickets if necessary, leaving 2 days for the schema update ticket to be performed.
+* filing a code update ticket, blocking on schema update and configuration update tickets if need be.
 
 # Monitoring & Escalation
