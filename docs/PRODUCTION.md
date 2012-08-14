@@ -33,6 +33,8 @@ Persona is composed of a few different distinct processes:
 
 * *verifier* - handles verification of assertions.
 
+* *proxy* - handles requests to third-party domains to check their BrowserID support.
+
 This process separation lets us scale optimally, by giving each function the ability to scale independently of the others. More importantly, it lets us do privilege separation:
 
 * only <tt>writer</tt> has DB-write access.
@@ -50,7 +52,7 @@ instantaneous: a master failure leads to 20 minutes of write-downtime
 
 We could host each process on a separate host, but we don't need to do that yet. Instead, we have four classes of hosts:
 
-* *webhead* - runs the <tt>router</tt>, <tt>static</tt>, <tt>reader</tt>, and <tt>verifier</tt> processes.
+* *webhead* - runs the <tt>router</tt>, <tt>static</tt>, <tt>reader</tt>, <tt>verifier</tt>, and <tt>proxy</tt> processes. Also runs <tt>nginx</tt> as the web-facing process.
 
 * *dbwriter* - runs the <tt>writer</tt> process.
 
@@ -61,6 +63,31 @@ We could host each process on a separate host, but we don't need to do that yet.
 Each class of hosts has at least 3 instances so that maintenance can
 proceed with remaining fault tolerance.
 
+## Load Balancers
+
+We use the Zeus load balancer in front of our multi-host system.
+
+## Configuration Management
+
+Hosts are configured with [Puppet](http://puppetlabs.com/puppet/what-is-puppet/), a tool that lets us specify invariants that Puppet ensures, e.g. "make sure that node 0.8.0 is installed."
+
 # Deploying New Code
+
+[This section merits further discussion.]
+
+## High-Level Process
+
+When deploying new code, we upgrade one cluster at a time, taking the
+cluster offline first, upgrading it fully, then bringing it back
+online. The alternative -- upgrading a cluster while it serves traffic
+-- leaves open the possibility that a change in the internal API would
+cause erratic behavior if, e.g. a read API call is served by old code
+while a write API call is served by new code. This kind of
+cluster-based deployment indicates that we'll need an additional
+cluster for improved robustness.
+
+## Details
+
+
 
 # Monitoring & Escalation
