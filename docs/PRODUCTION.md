@@ -83,10 +83,27 @@ online. The alternative -- upgrading a cluster while it serves traffic
 -- leaves open the possibility that a change in the internal API would
 cause erratic behavior if, e.g. a read API call is served by old code
 while a write API call is served by new code. This kind of
-cluster-based deployment indicates that we'll need an additional
-cluster for improved robustness.
+cluster-based deployment indicates that we'll need at least 3 clusters
+for true robustness.
 
-## Details
+Within a given cluster, each host is upgraded. Since the whole cluster
+is offline, we could technically upgrade all machines in parallel. To
+be safe, we upgrade one machine at a time and halt if an error is
+encountered. And to ensure that we can still hit the cluster and
+remain mostly functional (in case we later choose not to take the
+cluster offline), we take a machine out of rotation for its class,
+upgrade it, then put it back in rotation.
+
+## The Build and Coordination Server
+
+Currently, a build-and-coordination server is used to construct the [RPM](http://en.wikipedia.org/wiki/RPM_Package_Manager), which
+contains all dependencies that sit above <tt>node.js</tt>, and the
+post-install actions taht restart appropriate services. This RPM is then pushed to individual hosts.
+
+## Upgrading a Single Host
+
+Each host is upgraded by receiving the RPM and installing it.
+
 
 
 
