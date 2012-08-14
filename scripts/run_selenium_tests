@@ -1,0 +1,45 @@
+#!/usr/bin/env node
+
+var version = require("../lib/version.js"),
+    child_process = require('child_process'),
+    path = require('path');
+
+// this script deploys your current HEAD, runs selenium tests against it,
+// tears down the deployment, and outputs a pretty report.
+
+function runCmd(cmd, cb) {
+  var cp = child_process.exec(cmd, { cwd: path.dirname(__dirname) },
+                              function(err, r) {
+                                cb(err, r);
+                              });
+  cp.stdout.pipe(process.stdout);
+  cp.stderr.pipe(process.stderr);
+}
+
+// 1. determine the current SHA
+version(function(sha) {
+  var name = "testy-" + sha;
+
+  // 2. create a new ephemeral instance
+  runCmd('scripts/deploy.js create ' + name + ' -t c1.medium', function(err, r) {
+    console.log("FRAK", err, r);
+
+    // 2. deploy code
+    runCmd('git push ' + name + ' HEAD:master', function(err, r) {
+      console.log("OH", err, r);
+
+      // 3. run tests
+      // XXX
+
+      // 4. destroy instance
+      runCmd('scripts/deploy.js destroy ' + name, function(err, r) {
+        console.log("ME", err, r);
+      });
+    });
+  });
+});
+
+process.on('uncaughtException', function(err) {
+  console.log("OH NOES", err);
+  process.exit(1);
+});
