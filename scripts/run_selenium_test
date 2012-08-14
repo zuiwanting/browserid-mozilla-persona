@@ -24,6 +24,7 @@ var globalPythonArgs = {
   "-m": "py.test",
   "--credentials": path.join(testPath, "credentials.yaml"),
   "--saucelabs": path.join(testPath, "sauce.yaml"),
+  "--destructive": null
 };
 
 // python arguments specific to different test classes
@@ -119,7 +120,11 @@ exports.run = function(opts) {
       Object.keys(cmdargsObj).forEach(function(flag) {
         var spc = " ";
         if (flag.substr(2) === '--') spc = "=";
-        cmdargs += flag + spc + escape(cmdargsObj[flag].toString()) + " ";
+        if (null === cmdargsObj[flag]) {
+          cmdargs += flag + " ";
+        } else {
+          cmdargs += flag + spc + escape(cmdargsObj[flag].toString()) + " ";
+        }
       });
 
       console.log("STARTED: " + browser + "/" + test);
