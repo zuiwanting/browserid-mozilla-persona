@@ -19,6 +19,27 @@ A single Persona cluster looks like:
 
 ## Processes
 
+Persona is composed of a few different distinct processes:
+
+* *router* - the main entry point for all web requests, responsible for forwarding API requests appropriately. [QUESTION: should router be entry point for verifier? I don't think so... Maybe a separate router process?]
+
+* *static* - handles all static file requests, e.g. images, CSS, etc.
+
+* *webhead* - handles all read only API requests, forwarding when needed to dbwriter and certifier.
+
+* *dbwriter* - handles all API requests which require write access to the database.
+
+* *certifier* - handles certification of user keys.
+
+* *verifier* - handles verification of assertions.
+
+This process separation lets us scale optimally, by giving each function the ability to scale independently of the others. More importantly, it lets us do privilege separation:
+
+* only dbwriter has DB-write access.
+* only certifier has access to the private key.
+* dbwriter and certifier are not directly reachable from the public web.
+
+
 ## Hosts
 
 
