@@ -117,7 +117,7 @@ exports.run = function(opts, cb) {
     Object.keys(testSpecificPythonArgs).forEach(function(test) {
       if (opts['test-group'] && !glob(test, (opts['test-group']).toString())) return;
 
-      var htmlReportPath = temp.path({suffix: '.pdf'});
+      var htmlReportPath = temp.path({suffix: '.html'});
       var testArgs = testSpecificPythonArgs[test];
 
       // build up the command line arguments
