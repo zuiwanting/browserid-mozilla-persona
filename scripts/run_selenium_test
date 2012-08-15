@@ -278,15 +278,40 @@ if (process.argv[1] === __filename) {
     process.exit(0);
   }
 
+  // nice file names
+  var startTime = new Date();
+  function testFileName(browser, test) {
+    function pad(n){return n<10 ? '0'+n : n}
+    var d = startTime;
+    var name = "" +
+      d.getFullYear() +
+      "." +  pad(d.getMonth()+1)+'.'
+      + pad(d.getDate())+'-'
+      + pad(d.getHours())+':'
+      + pad(d.getMinutes())+':'
+      + pad(d.getSeconds());
+    name += "-" + browser + "-" + test;
+    return name;
+  }
+
   var tester = new TestRunner();
   tester.on('started', function(e) {
     console.log("STARTED:", e.browser + "/" + e.test);
   });
 
   tester.on('finished', function(report) {
+    // save off the report files
+    var basename = testFileName(report.browser, report.test);
+    var resultsPath = path.join(testPath, "results", basename);
+    fs.writeFileSync(resultsPath + ".html", report.htmlReport);
+    if (report.stderr.length) fs.writeFileSync(resultsPath + ".stderr.txt", report.stderr);
+    if (report.stdout.length) fs.writeFileSync(resultsPath + ".stdout.txt", report.stdout);
+
     var what = report.passed ? "PASSED" : "FAILED";
     console.log(what + ": " + report.browser + "/" + report.test +
-                " - " + report.duration.toFixed(2) + "s");
+                " - " + report.duration.toFixed(2) + "s (" +
+               path.relative(process.cwd, resultsPath + ".html") + ")");
+
     if (!report.passed) {
       Object.keys(report.results).forEach(function (resultName) {
         var result = report.results[resultName];
