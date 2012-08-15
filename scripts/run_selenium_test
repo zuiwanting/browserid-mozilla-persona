@@ -5,7 +5,8 @@ var child_process = require('child_process'),
     _ = require('underscore'),
     fs = require('fs'),
     glob = require('minimatch'),
-    temp = require('temp');
+    temp = require('temp'),
+    which = require('which');
 
 function runCmd(cmd, opts, cb) {
   if (!cb) {
@@ -102,6 +103,43 @@ function writeSauceYAML() {
   fs.writeFileSync(path.join(testPath, "sauce.yaml"), fileContents);
 }
 
+// setup python testing environment iff required, return path to python
+function setupPythonEnv(cb) {
+  var binPath = path.join(testPath, "bid_selenium", "bin");
+
+  function isSetup(lcb) {
+    var pathToPython = path.join(binPath, "python");
+    fs.stat(pathToPython, function(err, r) {
+      if (!err && r.isFile()) lcb(null, { pathToPython: pathToPython });
+      else lcb("not setup");
+    });
+  }
+  function findExecutable(names, cb) {
+    if (!names.length) return cb("not found");
+    var n = names.shift();
+    which(n, function(err, p) {
+      if (err) return findExecutable(names, cb);
+      cb(null, p);
+    });
+  }
+
+  isSetup(function(err, r) {
+    if (!err) return cb(null, r);
+
+    // time to set it up!
+    findExecutable([ 'virtualenv-2.7', 'virtualenv2', 'virtualenv' ], function(err, virtualenv) {
+      if (err) return cb("cannot find virtualenv");
+      runCmd(virtualenv + " " + path.join(testPath, "bid_selenium"), function(err, stdout) {
+        if (err) return cb("cannot run virtualenv: " + err);
+        runCmd(path.join(binPath, "pip") + " install -Ur requirements.txt", { cwd: testPath }, function(err, stdout) {
+          if (err) cb(err);
+          else isSetup(cb);
+        });
+      });
+    });
+  });
+}
+
 exports.run = function(opts, cb) {
   var processesRunning;
   var testReports = [];
@@ -110,62 +148,68 @@ exports.run = function(opts, cb) {
 
   writeSauceYAML();
 
-  Object.keys(browserSpecificPythonArgs).forEach(function(browser) {
-    if (opts.browser && !glob(browser, opts.browser.toString())) return;
-    var browserArgs = browserSpecificPythonArgs[browser];
+  setupPythonEnv(function(err, testEnvDetails) {
+    if (err) {
+      console.log("ERROR: couldn't setup python environment");
+      return cb(err);
+    }
+    Object.keys(browserSpecificPythonArgs).forEach(function(browser) {
+      if (opts.browser && !glob(browser, opts.browser.toString())) return;
+      var browserArgs = browserSpecificPythonArgs[browser];
 
-    Object.keys(testSpecificPythonArgs).forEach(function(test) {
-      if (opts['test-group'] && !glob(test, (opts['test-group']).toString())) return;
+      Object.keys(testSpecificPythonArgs).forEach(function(test) {
+        if (opts['test-group'] && !glob(test, (opts['test-group']).toString())) return;
 
-      var htmlReportPath = temp.path({suffix: '.pdf'});
-      var testArgs = testSpecificPythonArgs[test];
+        var htmlReportPath = temp.path({suffix: '.pdf'});
+        var testArgs = testSpecificPythonArgs[test];
 
-      // build up the command line arguments
-      var cmdargsObj = {};
-      _.extend(cmdargsObj, globalPythonArgs, testArgs, browserArgs,
-               { '--webqareport': htmlReportPath });
-      var cmdargs = "";
-      Object.keys(cmdargsObj).forEach(function(flag) {
-        var spc = " ";
-        if (flag.substr(2) === '--') spc = "=";
-        if (null === cmdargsObj[flag]) {
-          cmdargs += flag + " ";
-        } else {
-          cmdargs += flag + spc + escape(cmdargsObj[flag].toString()) + " ";
-        }
-      });
+        // build up the command line arguments
+        var cmdargsObj = {};
+        _.extend(cmdargsObj, globalPythonArgs, testArgs, browserArgs,
+                 { '--webqareport': htmlReportPath });
+        var cmdargs = "";
+        Object.keys(cmdargsObj).forEach(function(flag) {
+          var spc = " ";
+          if (flag.substr(2) === '--') spc = "=";
+          if (null === cmdargsObj[flag]) {
+            cmdargs += flag + " ";
+          } else {
+            cmdargs += flag + spc + escape(cmdargsObj[flag].toString()) + " ";
+          }
+        });
 
-      console.log("STARTED: " + browser + "/" + test);
-      var startTime = new Date();
-      processesRunning++;
-      runCmd("bid_selenium/bin/python " + cmdargs, { cwd: testPath }, function(err, stdout, stderr) {
-        var report = {
-          browser: browser,
-          test: test,
-          duration: ((new Date() - startTime) / 1000.0),
-          stdout: stdout,
-          stderr: stderr,
-          err: err,
-          passed: !err
-        };
+        console.log("STARTED: " + browser + "/" + test);
+        var startTime = new Date();
+        processesRunning++;
+        runCmd(testEnvDetails.pathToPython + " " + cmdargs, { cwd: testPath }, function(err, stdout, stderr) {
+          var report = {
+            browser: browser,
+            test: test,
+            duration: ((new Date() - startTime) / 1000.0),
+            stdout: stdout,
+            stderr: stderr,
+            err: err,
+            passed: !err
+          };
 
-        var htmlReportContents = fs.readFileSync(htmlReportPath);
+          var htmlReportContents = fs.readFileSync(htmlReportPath);
 
-        // XXX parse out interesting stuff from htmlReport and update report
+          // XXX parse out interesting stuff from htmlReport and update report
 
-        console.log((report.passed ? "PASSED" : "FAILED") + ": " + browser + "/" + test,
-                    report.duration.toFixed(2) + "s");
+          console.log((report.passed ? "PASSED" : "FAILED") + ": " + browser + "/" + test,
+                      report.duration.toFixed(2) + "s");
 
-        testReports.push(report);
+          testReports.push(report);
 
-        // remove artifacts
-        fs.unlink(htmlReportPath);
+          // remove artifacts
+          fs.unlink(htmlReportPath);
 
-        if (--processesRunning === 0) {
-          fs.unlink(path.join(testPath, "sauce.yaml"));
-          if (cb) cb(null, testReports);
-          console.log(testReports);
-        }
+          if (--processesRunning === 0) {
+            fs.unlink(path.join(testPath, "sauce.yaml"));
+            if (cb) cb(null, testReports);
+            console.log(testReports);
+          }
+        });
       });
     });
   });

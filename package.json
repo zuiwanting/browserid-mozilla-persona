@@ -41,7 +41,8 @@
         "awsbox": "0.2.15",
         "irc": "0.3.3",
         "jshint": "0.7.1",
-        "minimatch": "0.2.6"
+        "minimatch": "0.2.6",
+        "which": "1.0.5"
     },
     "scripts": {
         "postinstall": "node ./scripts/generate_ephemeral_keys.js",
