@@ -154,6 +154,17 @@ TestRunner.prototype.run = function(opts, cb) {
   var self = this;
   var processesRunning = 0;
   var testReports = [];
+  var overallStartTime = new Date();
+
+  // once all tests are complete, crawl through the data and write
+  // summary information
+  function addSummaryInfo(results) {
+    // XXX: calculcate browser and tests summary information
+    return {
+      duration: ((new Date() - overallStartTime) / 1000.0),
+      reports: results
+    };
+  }
 
   opts = opts || {};
 
@@ -216,7 +227,7 @@ TestRunner.prototype.run = function(opts, cb) {
 
           if (--processesRunning === 0) {
             fs.unlink(path.join(testPath, "sauce.yaml"));
-            if (cb) cb(null, testReports);
+            if (cb) cb(null, addSummaryInfo(testReports));
           }
         });
       });
@@ -276,12 +287,21 @@ if (process.argv[1] === __filename) {
     var what = report.passed ? "PASSED" : "FAILED";
     console.log(what + ": " + report.browser + "/" + report.test +
                 " - " + report.duration.toFixed(2) + "s");
-//    console.log(JSON.stringify(report, null, "  "));
-    // XXX: if we failed let's drop failure information into the
-    // console with links to sauce job ids.
+    if (!report.passed) {
+      Object.keys(report.results).forEach(function (resultName) {
+        var result = report.results[resultName];
+        if (result.success) return;
+        console.log("   " + result.class + ": " + result.url);
+      });
+    }
   });
 
   tester.run(args, function(report) {
+    // We would like to summarize:
+    //   1. total test duration
+    //   2. number of browsers failing
+    //   3. number of tests failing
+
     // XXX: after ALL tests complete output a short summary
 //    console.log(JSON.stringify(report, null, "  "));
   });
