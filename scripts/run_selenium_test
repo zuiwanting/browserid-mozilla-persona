@@ -6,7 +6,10 @@ var child_process = require('child_process'),
     fs = require('fs'),
     glob = require('minimatch'),
     temp = require('temp'),
-    which = require('which');
+    which = require('which'),
+    parseReport = require('./automation/convert_results.js').parseReport,
+    events = require('events'),
+    util = require('util');
 
 function runCmd(cmd, opts, cb) {
   if (!cb) {
@@ -17,6 +20,12 @@ function runCmd(cmd, opts, cb) {
     cb(err, stdout, stderr);
   });
 }
+
+function TestRunner() {
+  events.EventEmitter.call(this);
+}
+
+util.inherits(TestRunner, events.EventEmitter);
 
 // path to automation_tests
 const testPath = path.join(path.dirname(__dirname), "automation-tests");
@@ -105,7 +114,7 @@ function writeSauceYAML() {
 }
 
 // setup python testing environment iff required, return path to python
-function setupPythonEnv(cb) {
+TestRunner.prototype._setupPythonEnv = function(cb) {
   var binPath = path.join(testPath, "bid_selenium", "bin");
 
   function isSetup(lcb) {
@@ -141,15 +150,16 @@ function setupPythonEnv(cb) {
   });
 }
 
-exports.run = function(opts, cb) {
-  var processesRunning;
+TestRunner.prototype.run = function(opts, cb) {
+  var self = this;
+  var processesRunning = 0;
   var testReports = [];
 
   opts = opts || {};
 
   writeSauceYAML();
 
-  setupPythonEnv(function(err, testEnvDetails) {
+  this._setupPythonEnv(function(err, testEnvDetails) {
     if (err) {
       console.log("ERROR: couldn't setup python environment");
       return cb(err);
@@ -179,7 +189,7 @@ exports.run = function(opts, cb) {
           }
         });
 
-        console.log("STARTED: " + browser + "/" + test);
+        self.emit('started', { browser: browser, test: test });
         var startTime = new Date();
         processesRunning++;
         runCmd(testEnvDetails.pathToPython + " " + cmdargs, { cwd: testPath }, function(err, stdout, stderr) {
@@ -190,15 +200,14 @@ exports.run = function(opts, cb) {
             stdout: stdout,
             stderr: stderr,
             err: err,
-            passed: !err
+            passed: !err,
+            htmlReport: fs.readFileSync(htmlReportPath)
           };
 
-          var htmlReportContents = fs.readFileSync(htmlReportPath);
+          // extract key information from the html report and attach it to the report object
+          report.results = parseReport(report.htmlReport);
 
-          // XXX parse out interesting stuff from htmlReport and update report
-
-          console.log((report.passed ? "PASSED" : "FAILED") + ": " + browser + "/" + test,
-                      report.duration.toFixed(2) + "s");
+          self.emit('finished', report);
 
           testReports.push(report);
 
@@ -208,13 +217,14 @@ exports.run = function(opts, cb) {
           if (--processesRunning === 0) {
             fs.unlink(path.join(testPath, "sauce.yaml"));
             if (cb) cb(null, testReports);
-            console.log(testReports);
           }
         });
       });
     });
   });
 };
+
+module.exports = TestRunner;
 
 // if we're invoked from the command line, do command liney things
 if (process.argv[1] === __filename) {
@@ -231,12 +241,12 @@ if (process.argv[1] === __filename) {
     .describe('lb', 'list available browsers to test on')
     .alias('browser', 'b')
     .describe('browser', 'specify which browser to run tests on (globs supported)')
-    .default('browser', "*")
     .alias('list-test-groups', 'lt')
     .describe('list-test-groups', 'list available groups of tests that can be run')
     .alias('test-group', 't')
     .describe('test-group', 'specify which test groups to run (globs supported)')
-    .default("test-group", "*");
+    .default('browser', "linux_ffx_13") // default to a specific browser + test group
+    .default("test-group", "123done");  // lest folks accidentally launch large #s of || jobs
 
   var args = argv.argv;
 
@@ -257,5 +267,22 @@ if (process.argv[1] === __filename) {
     process.exit(0);
   }
 
-  exports.run(_.extend({}, args));
+  var tester = new TestRunner();
+  tester.on('started', function(e) {
+    console.log("STARTED:", e.browser + "/" + e.test);
+  });
+
+  tester.on('finished', function(report) {
+    var what = report.passed ? "PASSED" : "FAILED";
+    console.log(what + ": " + report.browser + "/" + report.test +
+                " - " + report.duration.toFixed(2) + "s");
+//    console.log(JSON.stringify(report, null, "  "));
+    // XXX: if we failed let's drop failure information into the
+    // console with links to sauce job ids.
+  });
+
+  tester.run(args, function(report) {
+    // XXX: after ALL tests complete output a short summary
+//    console.log(JSON.stringify(report, null, "  "));
+  });
 }

@@ -6,7 +6,7 @@
 
 const fs         = require('fs'),
       path       = require('path'),
-      jsonselect = require('jsonselect'),
+      jsonselect = require('JSONSelect'),
       htmlparser = require('htmlparser');
 
 
@@ -18,13 +18,12 @@ function main (args) {
 }
 
 function parseReport (html) {
-
+  var report = {};
   var handler = new htmlparser.DefaultHandler(function(err, dom) {
     if (err) {
       console.error("Error: " + err);
     } else {
       var results = jsonselect.match(':has(:root > .attribs > .id:val("results")) .children :has(:root > .name:val("tr"))', dom);
-      var report = {};
 
       // remove header row
       results.shift();
@@ -53,13 +52,12 @@ function parseReport (html) {
           url: url
         };
       });
-
-      console.log(JSON.stringify(report, null, '  '));
     }
   });
 
   var parser = new htmlparser.Parser(handler);
   parser.parseComplete(html);
+  return report;
 }
 
 // extract saucelab url from error report
