@@ -52,9 +52,7 @@ var testSpecificPythonArgs = {
   },
   "browserid": {
     "--baseurl": "http://dev.123done.org",
-    "-q": "browserid",
-    "--email": process.env['PERSONA_EMAIL'],
-    "--password": process.env['PERSONA_PASSWORD']
+    "-q": "browserid"
   },
   "myfavoritebeer": {
     "--baseurl": "http://dev.myfavoritebeer.org",
