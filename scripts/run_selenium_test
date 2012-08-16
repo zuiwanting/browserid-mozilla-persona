@@ -41,22 +41,20 @@ var globalPythonArgs = {
   "--credentials": credentialsYAMLPath,
   "--saucelabs": sauceYAMLPath,
   "--webqatimeout": 90,
-  "--destructive": null
+  "--destructive": null,
+  "-q": null
 };
 
 // python arguments specific to different test classes
 var testSpecificPythonArgs = {
   "123done": {
-    "--baseurl": "http://dev.123done.org",
-    "-q": "123done"
+    "--baseurl": "http://dev.123done.org"
   },
   "browserid": {
-    "--baseurl": "http://dev.123done.org",
-    "-q": "browserid"
+    "--baseurl": "http://dev.123done.org"
   },
   "myfavoritebeer": {
-    "--baseurl": "http://dev.myfavoritebeer.org",
-    "-q": "myfavoritebeer"
+    "--baseurl": "http://dev.myfavoritebeer.org"
   }
 };
 
@@ -220,7 +218,11 @@ TestRunner.prototype.run = function(opts, cb) {
             cmdargs += flag + spc + escape(cmdargsObj[flag].toString()) + " ";
           }
         });
-
+        if (opts.single) {
+          cmdargs += " " + path.relative(testPath, opts.single);
+        } else {
+          cmdargs += " " + test;
+        }
         self.emit('started', { browser: browser, test: test });
         var startTime = new Date();
         processesRunning++;
@@ -281,6 +283,8 @@ if (process.argv[1] === __filename) {
     .describe('list-test-groups', 'list available groups of tests that can be run')
     .alias('test-group', 't')
     .describe('test-group', 'specify which test groups to run (globs supported)')
+    .describe('single', 'run a single test within the specified test group')
+    .alias('single', 's')
     .default('browser', "linux_ffx_13") // default to a specific browser + test group
     .default("test-group", "123done");  // lest folks accidentally launch large #s of || jobs
 
