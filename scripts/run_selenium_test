@@ -42,7 +42,8 @@ var globalPythonArgs = {
   "--saucelabs": sauceYAMLPath,
   "--webqatimeout": 90,
   "--destructive": null,
-  "-q": null
+  "-q": null,
+  '--capabilities': JSON.stringify({ "avoid-proxy":"true"})
 };
 
 // python arguments specific to different test classes
@@ -58,17 +59,16 @@ var testSpecificPythonArgs = {
   }
 };
 
-// python arguments specific to different browser/os combos
 var browserSpecificPythonArgs = {
   "linux_ffx_13": {
     '--platform': 'LINUX',
     '--browsername': 'firefox',
-    '--browserver': 13
+    '--browserver': '13'
   },
   "linux_opera_12": {
     '--platform': 'LINUX',
     '--browsername': 'opera',
-    '--browserver': '12',
+    '--browserver': '12'
   },
   "osx_firefox_14": {
     '--platform': 'MAC',
@@ -84,7 +84,7 @@ var browserSpecificPythonArgs = {
     '--browsername':'firefox',
     '--browserver':'13'
   },
-  "vista_ie_9": {
+  "2008_ie_9": {
     '--platform':'Windows 2008',
     '--browsername':'internet explorer',
     '--browserver':'9'
