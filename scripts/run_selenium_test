@@ -328,6 +328,7 @@ if (process.argv[1] === __filename) {
     // save off the report files
     var basename = testFileName(report.browser, report.test);
     var resultsPath = path.join(testPath, "results", basename);
+    mkdirp.sync(path.join(testPath, "results"));
     fs.writeFileSync(resultsPath + ".html", report.htmlReport);
     if (report.stderr.length) fs.writeFileSync(resultsPath + ".stderr.txt", report.stderr);
     if (report.stdout.length) fs.writeFileSync(resultsPath + ".stdout.txt", report.stdout);
