@@ -60,7 +60,7 @@ var testSpecificPythonArgs = {
 };
 
 var browserSpecificPythonArgs = {
-  "linux_ffx_13": {
+  "linux_firefox_13": {
     '--platform': 'LINUX',
     '--browsername': 'firefox',
     '--browserver': '13'
@@ -84,8 +84,8 @@ var browserSpecificPythonArgs = {
     '--browsername':'firefox',
     '--browserver':'13'
   },
-  "2008_ie_9": {
-    '--platform':'Windows 2008',
+  "vista_ie_9": {
+    '--platform':'VISTA',
     '--browsername':'internet explorer',
     '--browserver':'9'
   },
@@ -285,7 +285,7 @@ if (process.argv[1] === __filename) {
     .describe('test-group', 'specify which test groups to run (globs supported)')
     .describe('single', 'run a single test within the specified test group')
     .alias('single', 's')
-    .default('browser', "linux_ffx_13") // default to a specific browser + test group
+    .default('browser', "linux_firefox_13") // default to a specific browser + test group
     .default("test-group", "123done");  // lest folks accidentally launch large #s of || jobs
 
   var args = argv.argv;
