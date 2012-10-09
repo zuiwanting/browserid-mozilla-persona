@@ -85,12 +85,15 @@ var _privKey = jwcrypto.loadSecretKey(
 exampleServer.post("/api/cert_key", function (req, res) {
   var user = req.session.user;
 
+  // User can be example.domain or delegated.domain
+  var emailDomain = req.body.origEmail.split('@')[1];
+
   var domain = process.env['SHIMMED_DOMAIN'];
 
   var expiration = new Date();
   var pubkey = jwcrypto.loadPublicKeyFromObject(req.body.pubkey);
   expiration.setTime(new Date().valueOf() + req.body.duration * 1000);
-  jwcrypto.cert.sign({publicKey: pubkey, principal: {email: user + "@" + domain}},
+  jwcrypto.cert.sign({publicKey: pubkey, principal: {email: user + "@" + emailDomain}},
                      {issuer: domain, expiresAt: expiration, issuedAt: new Date()},
                      {}, _privKey, function(err, cert) {
     res.json({ cert: cert });

@@ -31,7 +31,8 @@
             url: '/api/cert_key',
             data: JSON.stringify({
               pubkey: JSON.parse(pubkey),
-              duration: cert_duration
+              duration: cert_duration,
+              origEmail: email
             }),
             type: 'POST',
             headers: { "Content-Type": 'application/json' },
