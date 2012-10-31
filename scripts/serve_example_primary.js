@@ -50,6 +50,26 @@ if (process.env['PUBLIC_URL']) {
   }));
 }
 
+const IDP_STATUSES = ['up', 'down', 'disabled'];
+var UP = 0, DOWN = 1, DISABLED = 2;
+var idpStatus = IDP_STATUSES[2];
+
+exampleServer.use(function (req, res, next) {
+  var cont = true;
+  if ('/.well-known/browserid' === req.path) {
+    if (IDP_STATUSES[DOWN] === idpStatus) {
+      res.send('Internal Server Error', 500);
+      cont = false;
+    } else if (IDP_STATUSES[DISABLED] === idpStatus) {
+      res.setHeader('Content-Type', 'application/json');
+      res.send(JSON.stringify({}));
+      cont = false;
+    }
+  }
+  if (cont) next();
+});
+
+
 exampleServer.use(express.static(path.join(__dirname, "..", "example", "primary")));
 
 exampleServer.use(express.bodyParser());
@@ -95,6 +115,27 @@ exampleServer.post("/api/cert_key", function (req, res) {
                      {}, _privKey, function(err, cert) {
     res.json({ cert: cert });
   });
+});
+
+exampleServer.get("/manage/well-known-support", function (req, res) {
+  for (var i=0; i < IDP_STATUSES.length; i++) {
+    if (idpStatus === IDP_STATUSES[i]) {
+      return res.send(String(i));
+    }
+  }
+  return res.send('weird', 500);
+});
+exampleServer.post("/manage/well-known-support", function (req, res) {
+  console.log('body=', req.body);
+  console.log('body=', req.body.idpsupport);
+
+  var idpsupport = req.body.idpsupport;
+  if (['0', '1', '2'].indexOf(req.body.idpsupport) !== -1) {
+    idpStatus = IDP_STATUSES[parseInt(idpsupport, 10)];
+    res.send(idpStatus);
+  } else {
+    res.send('Unknown Value', 400);
+  }
 });
 
 

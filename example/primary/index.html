@@ -16,7 +16,7 @@ body { margin: auto; font: 13px/1.5 Helvetica, Arial, 'Liberation Sans', FreeSan
 .intro { font-size: 1.2em; width: 600px; margin: auto; }
 .main { text-align: center; margin-top: 2em; font-size: 1.2em; width: 500px; margin: auto; }
 #whoareyou { font-weight: bold; }
-
+.manage { font-size: 1.2em; width: 300px; margin: auto; }
 </style>
 </head>
 <body>
@@ -37,6 +37,16 @@ body { margin: auto; font: 13px/1.5 Helvetica, Arial, 'Liberation Sans', FreeSan
   <input type="text" autofocus>
   <button>doit</button>
 </form>
+
+<div class="manage">
+  <h2>Manage example.domain</h2>
+  <p>Toggle example.domain's IdP support:
+  <ul class='idp-support'>
+    <li><input type="radio" name="support" value="0"> Full Persona Support :)
+    <li><input type="radio" name="support" value="1"> Server Down :|
+   <li><input type="radio" name="support" value="2"> Disabled Persona Support :(
+  </ul>
+</div>
 
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript">
@@ -69,6 +79,14 @@ $(document).ready(function() {
   });
 
   updateWhoIAm();
+});
+var manage_url = '/manage/well-known-support';
+$.get(manage_url, function (data, status, xhr) {
+  $('input[name=support][value=' + data + ']').attr('checked', true)
+});
+
+$('.idp-support li input').click(function (e) {
+  $.post(manage_url, {idpsupport: $(e.target).val()});
 });
 </script>
 </body>
