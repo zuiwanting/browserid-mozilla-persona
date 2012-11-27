@@ -9,7 +9,8 @@ require('./lib/test_env.js');
 const assert = require('assert'),
 vows = require('vows'),
 start_stop = require('./lib/start-stop.js'),
-wsapi = require('./lib/wsapi.js');
+wsapi = require('./lib/wsapi.js'),
+http = require('http');
 
 var suite = vows.describe('forgotten-email');
 
@@ -87,6 +88,36 @@ suite.addBatch({
       assert.equal(respObj[emails[0]].type, "secondary");
       assert.equal(respObj[emails[0]].verified, true);
       assert.equal(emails.length, 1);
+    },
+    "after a short time": {
+      topic: function() {
+        setTimeout(this.callback, 500);
+      },
+      "causes .well-known of domain": {
+        topic: function() {
+          var self = this;
+          var req = http.request({
+            host: '127.0.0.1',
+            port: 10006,
+            path: '/lastFetched/' + "somehost.com",
+            method: "get"
+          }, function (res) {
+            var body = "";
+            res.on('data', function(chunk) { body += chunk; })
+              .on('end', function() {
+                self.callback(null, body);
+              });
+          }).on('error', function (e) {
+            self.callback("error: ", e);
+          });
+          req.end();
+        },
+        "to be pre-fetched": function(err, body) {
+          assert.equal(err, null);
+          var when = new Date(JSON.parse(body).fetched);
+          assert.ok((new Date() - when) < 1000);
+        }
+      }
     }
   }
 });

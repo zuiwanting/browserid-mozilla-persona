@@ -19,17 +19,37 @@ var addy = config.has('bind_to.host') ? config.get('bind_to.host') : "127.0.0.1"
 // set a maximum allowed time on responses to declaration of support requests
 forward.setTimeout(config.get('declaration_of_support_timeout_ms'));
 
-const allowed = /^https:\/\/[a-zA-Z0-9\.\-_]+\/\.well-known\/browserid(\?.*)?$/;
+const allowed = /^https:\/\/([a-zA-Z0-9\.\-_]+)\/\.well-known\/browserid(\?.*)?$/;
+const lastFetched = /^\/lastFetched\/(.*)$/;
+
+// keep track of when domains were last fetched to enable testing of application
+// behaviors (such as list_emails *pre-fetching* domain's well-known documents)
+// keys are domains, values are last time a fetch was *initiated*.
+var fetchedDomains = {
+};
 
 var server = http.createServer(function (req, res) {
-  var url = req.url;
-  if (!allowed.test(url)) {
+  // an API to return the last time a domain was fetched
+  var m = lastFetched.exec(req.url);
+  if (m) {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    var when = fetchedDomains[m[1]] || null;
+    res.end(JSON.stringify({ fetched: when }));
+    return;
+  }
+
+  // if our API is not invoked, ensure this is a forward proxy request to a
+  // .well-known document
+  m = allowed.exec(req.url);
+  if (!m) {
     res.writeHead(400);
     res.end('You can\'t get there from here');
     return;
   }
 
-  forward.forward(url, req, res, function(err) {
+  fetchedDomains[m[1]] = new Date();
+
+  forward.forward(req.url, req, res, function(err) {
     if (err) {
       res.writeHead(400);
       res.end('Oops: ' + err.toString());
