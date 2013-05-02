@@ -37,6 +37,18 @@ var primaryUser = new primary({
   domain: PRIMARY_DOMAIN
 });
 
+function getSessionDuration(context) {
+  // if context is undefined, cookies will be fetched from wsapi.js's internal
+  // context state.
+  var cookie = wsapi.getCookie(/^browserid_state/, context);
+  if (!cookie) throw new Error("Could not get browserid_state cookie");
+
+  var durationStr = cookie.split('.')[3];
+  if (!durationStr) throw new Error("Malformed browserid_state cookie - does not contain duration");
+
+  return parseInt(durationStr, 10);
+}
+
 suite.addBatch({
   "setup user": {
     topic: function() {
@@ -107,7 +119,9 @@ suite.addBatch({
 // now test that authenticate_user & secondary emails properly respect the 'ephemeral' argument to
 // alter session length
 const TEST_EMAIL = 'someuser@somedomain.com',
-      PASSWORD = 'thisismypassword';
+      PASSWORD = 'thisismypassword',
+      RESET_PASSWORD = 'thisismynewpassword';
+
 
 var token = undefined;
 
@@ -235,6 +249,63 @@ suite.addBatch({
     }
   }
 });
+
+/**
+ * Check to make sure completing an email verification does not reset
+ * the session duration
+ */
+suite.addBatch({
+  "session prolonging": {
+    topic: wsapi.post('/wsapi/prolong_session', {}),
+    "returns 200": function(err, r) {
+      assert.strictEqual(r.code, 200);
+    }
+  }
+});
+
+// now add an email address
+suite.addBatch({
+  "account staging": {
+    topic: wsapi.post('/wsapi/stage_reset', {
+      email: TEST_EMAIL,
+      site: 'http://a.really.fakesite123.com:999'
+    }),
+    "works":     function(err, r) {
+      assert.equal(r.code, 200);
+    }
+  }
+});
+
+// wait for the token
+suite.addBatch({
+  "a token": {
+    topic: function() {
+      start_stop.waitForToken(this.callback);
+    },
+    "is obtained": function (err, t) {
+      assert.isNull(err);
+      assert.strictEqual(typeof t, 'string');
+      token = t;
+    }
+  }
+});
+
+// verify the account
+suite.addBatch({
+  "setting password": {
+    topic: function() {
+      wsapi.post('/wsapi/complete_reset', {
+        pass: RESET_PASSWORD,
+        token: token
+      }).call(this);
+    },
+    "does not shorten session duration": function(err, r) {
+      assert.equal(r.code, 200);
+      assert.strictEqual(getSessionDuration(), config.get('authentication_duration_ms'));
+    }
+  }
+});
+
 
 start_stop.addShutdownBatches(suite);
 
