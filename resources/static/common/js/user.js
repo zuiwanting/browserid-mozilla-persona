@@ -28,6 +28,15 @@ BrowserID.User = (function() {
       issuer = "default",
       allowUnverified = false;
 
+  var TRANSITION_STATES = [
+    "transition_to_secondary",
+    "transition_no_password",
+    "transition_to_primary"
+  ];
+
+  function isTransitioning(state) {
+    return (TRANSITION_STATES.indexOf(state) > -1);
+  }
 
   // remove identities that are no longer valid
   function cleanupIdentities(onSuccess, onFailure) {
@@ -1183,12 +1192,6 @@ BrowserID.User = (function() {
         storage.addEmail(email, idInfo);
       }
 
-      var transitionStates = [
-        "transition_to_secondary",
-        "transition_no_password",
-        "transition_to_primary"
-      ];
-
       cryptoLoader.load(function(jwcrypto) {
         var record = User.getStoredEmailKeypair(email);
 
@@ -1217,7 +1220,7 @@ BrowserID.User = (function() {
           // is now verified... clear cert.
           clearCert(email, record);
         }
-        else if (transitionStates.indexOf(info.state) > -1) {
+        else if (isTransitioning(info.state)) {
           // On a transition, issuer MUST have changed... clear cert
           clearCert(email, record);
         }
@@ -1465,23 +1468,24 @@ BrowserID.User = (function() {
      */
     getSilentAssertion: function(siteSpecifiedEmail, onComplete, onFailure) {
       User.checkAuthenticationAndSync(function(authenticated) {
-        if (authenticated) {
-          var loggedInEmail = storage.site.get(origin, "logged_in");
-          if (loggedInEmail !== siteSpecifiedEmail) {
-            if (loggedInEmail) {
-              User.getAssertion(loggedInEmail, origin, function(assertion) {
-                onComplete(assertion ? loggedInEmail : null, assertion);
-              }, onFailure);
-            } else {
-              onComplete(null, null);
-            }
-          } else {
-            onComplete(loggedInEmail, null);
-          }
-        }
-        else if (onComplete) {
-          onComplete(null, null);
-        }
+        var loggedInEmail = storage.site.get(origin, "logged_in");
+        if (!(authenticated && loggedInEmail))
+          return complete(onComplete, null, null);
+
+        // If the address is in a transition state, the user must see
+        // messaging in the dialog before continuing.
+        User.addressInfo(loggedInEmail, function(info) {
+          if (isTransitioning(info.state))
+            return complete(onComplete, null, null);
+
+          if (loggedInEmail === siteSpecifiedEmail)
+            return complete(onComplete, loggedInEmail, null);
+
+          User.getAssertion(loggedInEmail, origin,
+              function(assertion) {
+            complete(onComplete, assertion ? loggedInEmail : null, assertion);
+          }, onFailure);
+        });
       }, onFailure);
     },
 
